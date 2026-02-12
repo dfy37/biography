@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>家传 | Multi-Agent 传记生成器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>家传 · 人物传记自动采访与写作</h1>
+      <p class="subtitle">Flask + HTML + Multi-Agent 工作流（采访 → 编排 → 写作）</p>
+
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+
+      <form action="/generate" method="post" class="card">
+        <label>人物姓名
+          <input name="subject_name" required value="{{ payload.subject_name if payload else '' }}" />
+        </label>
+
+        <label>时代背景（例：改革开放后）
+          <input name="era" value="{{ payload.era if payload else '' }}" />
+        </label>
+
+        <label>人生亮点关键词
+          <input name="highlights" placeholder="创业、教师、援藏、家风…" value="{{ payload.highlights if payload else '' }}" />
+        </label>
+
+        <label>原始口述 / 已采集素材
+          <textarea name="raw_notes" rows="5" placeholder="可粘贴口述转写内容...">{{ payload.raw_notes if payload else '' }}</textarea>
+        </label>
+
+        <label>文风偏好
+          <select name="tone">
+            {% set tone = payload.tone if payload else '温暖真诚' %}
+            <option value="温暖真诚" {% if tone == '温暖真诚' %}selected{% endif %}>温暖真诚</option>
+            <option value="纪实克制" {% if tone == '纪实克制' %}selected{% endif %}>纪实克制</option>
+            <option value="文学抒情" {% if tone == '文学抒情' %}selected{% endif %}>文学抒情</option>
+          </select>
+        </label>
+
+        <label>传承目标
+          <input name="generation_goal" placeholder="给子女和孙辈留下精神财富" value="{{ payload.generation_goal if payload else '' }}" />
+        </label>
+
+        <button type="submit">开始生成传记</button>
+      </form>
+
+      {% if results %}
+      <section class="result-grid">
+        <article class="card">
+          <h2>① 采访代理输出</h2>
+          <pre>{{ results.interview }}</pre>
+        </article>
+        <article class="card">
+          <h2>② 编排代理输出</h2>
+          <pre>{{ results.structure }}</pre>
+        </article>
+        <article class="card full">
+          <h2>③ 写作代理输出（传记初稿）</h2>
+          <pre>{{ results.biography }}</pre>
+        </article>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>
