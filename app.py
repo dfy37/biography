@@ -1,139 +1,34 @@
 from __future__ import annotations
 
 import os
-import re
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 from flask import Flask, jsonify, render_template, request
+
+from agents import BiographyMultiAgentFramework
 
 app = Flask(__name__)
 
 
 @dataclass
-class AgentResult:
-    name: str
-    output: str
+class ChatSession:
+    session_id: str
+    messages: List[Dict[str, str]] = field(default_factory=list)
+    ready_to_write: bool = False
+    biography: Dict[str, str] | None = None
 
 
-class BaseAgent:
-    def __init__(self, name: str, role: str):
-        self.name = name
-        self.role = role
-
-    def run(self, context: Dict[str, str]) -> AgentResult:
-        raise NotImplementedError
+framework: BiographyMultiAgentFramework | None = None
+sessions: Dict[str, ChatSession] = {}
 
 
-class InterviewAgent(BaseAgent):
-    def __init__(self) -> None:
-        super().__init__(
-            name="采访代理",
-            role="围绕人物经历进行结构化提问，提取关键人生信息。",
-        )
-
-    def run(self, context: Dict[str, str]) -> AgentResult:
-        subject = context.get("subject_name", "受访者")
-        era = context.get("era", "未填写")
-        highlights = context.get("highlights", "未填写")
-        raw_notes = context.get("raw_notes", "")
-
-        questions = [
-            f"{subject}的童年成长环境如何？有哪些影响一生的家庭记忆？",
-            f"{subject}在{era}这个时代背景下，做过哪些关键选择？",
-            f"{subject}最自豪和最艰难的经历分别是什么？",
-            f"哪些价值观是{subject}最希望传给下一代的？",
-        ]
-
-        extracted = self._extract_bullets(raw_notes)
-        summary = (
-            "【采访提纲】\n- "
-            + "\n- ".join(questions)
-            + "\n\n【输入提炼】\n- "
-            + "\n- ".join(extracted)
-            + f"\n- 用户强调亮点：{highlights}"
-        )
-        return AgentResult(self.name, summary)
-
-    @staticmethod
-    def _extract_bullets(raw_notes: str) -> List[str]:
-        if not raw_notes.strip():
-            return ["暂无原始口述内容，建议先进行语音采访。"]
-        cleaned = re.sub(r"\s+", " ", raw_notes).strip()
-        parts = re.split(r"[。！？!?；;\n]", cleaned)
-        bullets = [p.strip(" ，,.、") for p in parts if p.strip()]
-        return bullets[:6] if bullets else [cleaned]
-
-
-class StructuringAgent(BaseAgent):
-    def __init__(self) -> None:
-        super().__init__(
-            name="编排代理",
-            role="将采访素材按时间线与主题线重组，生成章节框架。",
-        )
-
-    def run(self, context: Dict[str, str]) -> AgentResult:
-        subject = context.get("subject_name", "受访者")
-        interview_result = context.get("interview_result", "")
-        tone = context.get("tone", "温暖真诚")
-
-        chapters = [
-            "第一章：家风与童年",
-            "第二章：求学与立业",
-            "第三章：家庭与责任",
-            "第四章：转折与坚守",
-            "第五章：晚年智慧与家训",
-        ]
-
-        outline = (
-            f"为《{subject}人生口述史》生成章节骨架（文风：{tone}）：\n"
-            + "\n".join(f"- {item}" for item in chapters)
-            + "\n\n素材摘要：\n"
-            + interview_result[:500]
-        )
-        return AgentResult(self.name, outline)
-
-
-class WritingAgent(BaseAgent):
-    def __init__(self) -> None:
-        super().__init__(
-            name="写作代理",
-            role="基于采访提炼与章节框架，输出传记初稿。",
-        )
-
-    def run(self, context: Dict[str, str]) -> AgentResult:
-        subject = context.get("subject_name", "受访者")
-        tone = context.get("tone", "温暖真诚")
-        generation_goal = context.get("generation_goal", "为家庭留下一份可传承的人生记录")
-        interview_result = context.get("interview_result", "")
-
-        draft = f"""《{subject}传》\n\n序言\n这是一份以{tone}笔触写成的生命记录，目标是{generation_goal}。\n\n正文（节选）\n{subject}的一生，是普通人奋斗与守望的缩影。从家庭记忆到时代转折，从责任承担到价值传承，每一步都印证了“平凡亦可伟大”。\n\n根据采访信息可见：\n{interview_result[:350]}\n\n结语\n愿这份传记成为家族的精神灯塔，让后代在阅读中看见来路、获得力量。\n"""
-        return AgentResult(self.name, draft)
-
-
-class BiographyMultiAgentPipeline:
-    def __init__(self) -> None:
-        self.interview_agent = InterviewAgent()
-        self.structuring_agent = StructuringAgent()
-        self.writing_agent = WritingAgent()
-
-    def run(self, payload: Dict[str, str]) -> Dict[str, str]:
-        interview = self.interview_agent.run(payload)
-        payload["interview_result"] = interview.output
-
-        structure = self.structuring_agent.run(payload)
-        payload["structure_result"] = structure.output
-
-        writing = self.writing_agent.run(payload)
-
-        return {
-            "interview": interview.output,
-            "structure": structure.output,
-            "biography": writing.output,
-        }
-
-
-pipeline = BiographyMultiAgentPipeline()
+def get_framework() -> BiographyMultiAgentFramework:
+    global framework
+    if framework is None:
+        framework = BiographyMultiAgentFramework()
+    return framework
 
 
 @app.route("/", methods=["GET"])
@@ -141,26 +36,52 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/generate", methods=["POST"])
-def generate():
-    payload = {
-        "subject_name": request.form.get("subject_name", "").strip(),
-        "era": request.form.get("era", "").strip(),
-        "highlights": request.form.get("highlights", "").strip(),
-        "raw_notes": request.form.get("raw_notes", "").strip(),
-        "tone": request.form.get("tone", "").strip() or "温暖真诚",
-        "generation_goal": request.form.get("generation_goal", "").strip(),
-    }
+@app.route("/chat/start", methods=["POST"])
+def chat_start():
+    session_id = str(uuid.uuid4())
+    greeting = "你好，我是你的传记采访助手。我们先从你的讲述对象开始：TA是谁，你和TA是什么关系？"
+    session = ChatSession(
+        session_id=session_id,
+        messages=[{"role": "assistant", "content": greeting}],
+    )
+    sessions[session_id] = session
+    return jsonify({"session_id": session_id, "messages": session.messages})
 
-    if not payload["subject_name"]:
-        return render_template("index.html", error="请至少填写人物姓名。", payload=payload)
 
-    results = pipeline.run(payload)
+@app.route("/chat/message", methods=["POST"])
+def chat_message():
+    data = request.get_json(silent=True) or {}
+    session_id = (data.get("session_id") or "").strip()
+    user_message = (data.get("message") or "").strip()
 
-    if request.headers.get("Accept") == "application/json":
-        return jsonify(results)
+    if not session_id or session_id not in sessions:
+        return jsonify({"error": "会话不存在，请刷新后重新开始。"}), 400
+    if not user_message:
+        return jsonify({"error": "请输入消息内容。"}), 400
 
-    return render_template("index.html", results=results, payload=payload)
+    session = sessions[session_id]
+    if session.ready_to_write:
+        return jsonify({"error": "该会话已完成写作，如需继续请开启新会话。"}), 400
+
+    session.messages.append({"role": "user", "content": user_message})
+    try:
+        pipeline_result = get_framework().next_turn(session.messages)
+    except Exception as e:
+        return jsonify({"error": f"LLM 初始化或调用失败：{e}"}), 500
+
+    session.messages.append({"role": "assistant", "content": pipeline_result["assistant"]})
+    if pipeline_result["ready_to_write"]:
+        session.ready_to_write = True
+        session.biography = pipeline_result["result"]
+
+    return jsonify(
+        {
+            "session_id": session.session_id,
+            "messages": session.messages,
+            "ready_to_write": session.ready_to_write,
+            "result": session.biography,
+        }
+    )
 
 
 if __name__ == "__main__":

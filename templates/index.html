@@ -3,67 +3,110 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>家传 | Multi-Agent 传记生成器</title>
+    <title>家传 | 对话式 Multi-Agent 传记生成器</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
     <main class="container">
-      <h1>家传 · 人物传记自动采访与写作</h1>
-      <p class="subtitle">Flask + HTML + Multi-Agent 工作流（采访 → 编排 → 写作）</p>
+      <h1>家传 · 对话式人物传记采写</h1>
+      <p class="subtitle">用户与采访助手多轮聊天，素材充分后自动触发“编排代理 + 写作代理”。</p>
 
-      {% if error %}
-      <div class="error">{{ error }}</div>
-      {% endif %}
+      <section class="card">
+        <div class="toolbar">
+          <button id="startBtn" type="button">开启新对话</button>
+          <span id="statusText">未开始</span>
+        </div>
 
-      <form action="/generate" method="post" class="card">
-        <label>人物姓名
-          <input name="subject_name" required value="{{ payload.subject_name if payload else '' }}" />
-        </label>
+        <div id="chatBox" class="chat-box"></div>
 
-        <label>时代背景（例：改革开放后）
-          <input name="era" value="{{ payload.era if payload else '' }}" />
-        </label>
+        <div class="input-row">
+          <textarea id="userInput" rows="3" placeholder="请输入你的回复..." disabled></textarea>
+          <button id="sendBtn" type="button" disabled>发送</button>
+        </div>
+      </section>
 
-        <label>人生亮点关键词
-          <input name="highlights" placeholder="创业、教师、援藏、家风…" value="{{ payload.highlights if payload else '' }}" />
-        </label>
-
-        <label>原始口述 / 已采集素材
-          <textarea name="raw_notes" rows="5" placeholder="可粘贴口述转写内容...">{{ payload.raw_notes if payload else '' }}</textarea>
-        </label>
-
-        <label>文风偏好
-          <select name="tone">
-            {% set tone = payload.tone if payload else '温暖真诚' %}
-            <option value="温暖真诚" {% if tone == '温暖真诚' %}selected{% endif %}>温暖真诚</option>
-            <option value="纪实克制" {% if tone == '纪实克制' %}selected{% endif %}>纪实克制</option>
-            <option value="文学抒情" {% if tone == '文学抒情' %}selected{% endif %}>文学抒情</option>
-          </select>
-        </label>
-
-        <label>传承目标
-          <input name="generation_goal" placeholder="给子女和孙辈留下精神财富" value="{{ payload.generation_goal if payload else '' }}" />
-        </label>
-
-        <button type="submit">开始生成传记</button>
-      </form>
-
-      {% if results %}
-      <section class="result-grid">
+      <section id="resultSection" class="result-grid" hidden>
         <article class="card">
-          <h2>① 采访代理输出</h2>
-          <pre>{{ results.interview }}</pre>
-        </article>
-        <article class="card">
-          <h2>② 编排代理输出</h2>
-          <pre>{{ results.structure }}</pre>
+          <h2>① 编排代理输出</h2>
+          <pre id="structureOutput"></pre>
         </article>
         <article class="card full">
-          <h2>③ 写作代理输出（传记初稿）</h2>
-          <pre>{{ results.biography }}</pre>
+          <h2>② 写作代理输出（传记初稿）</h2>
+          <pre id="bioOutput"></pre>
         </article>
       </section>
-      {% endif %}
     </main>
+
+    <script>
+      let sessionId = "";
+      const startBtn = document.getElementById("startBtn");
+      const sendBtn = document.getElementById("sendBtn");
+      const userInput = document.getElementById("userInput");
+      const chatBox = document.getElementById("chatBox");
+      const statusText = document.getElementById("statusText");
+      const resultSection = document.getElementById("resultSection");
+      const structureOutput = document.getElementById("structureOutput");
+      const bioOutput = document.getElementById("bioOutput");
+
+      function appendMessage(role, content) {
+        const item = document.createElement("div");
+        item.className = `msg ${role}`;
+        item.innerText = `${role === "assistant" ? "助手" : "用户"}：${content}`;
+        chatBox.appendChild(item);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      async function startChat() {
+        const res = await fetch("/chat/start", { method: "POST" });
+        const data = await res.json();
+        sessionId = data.session_id;
+        chatBox.innerHTML = "";
+        data.messages.forEach((m) => appendMessage(m.role, m.content));
+        sendBtn.disabled = false;
+        userInput.disabled = false;
+        resultSection.hidden = true;
+        statusText.innerText = "采集中";
+      }
+
+      async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text || !sessionId) return;
+
+        appendMessage("user", text);
+        userInput.value = "";
+
+        const res = await fetch("/chat/message", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId, message: text }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          appendMessage("assistant", data.error || "请求失败，请重试。");
+          return;
+        }
+
+        const assistantMessage = data.messages[data.messages.length - 1];
+        appendMessage(assistantMessage.role, assistantMessage.content);
+
+        if (data.ready_to_write && data.result) {
+          statusText.innerText = "已完成写作";
+          sendBtn.disabled = true;
+          userInput.disabled = true;
+          structureOutput.innerText = data.result.structure || "";
+          bioOutput.innerText = data.result.biography || "";
+          resultSection.hidden = false;
+        }
+      }
+
+      startBtn.addEventListener("click", startChat);
+      sendBtn.addEventListener("click", sendMessage);
+      userInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          sendMessage();
+        }
+      });
+    </script>
   </body>
 </html>
