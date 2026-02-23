@@ -11,38 +11,32 @@
       <header class="topbar">
         <div>
           <h1>家传</h1>
-          <p>先采访，再由多代理协作生成传记</p>
+          <p>ChatGPT 风格对话采写台</p>
         </div>
         <div class="actions">
           <button id="startBtn" type="button">开启新对话</button>
-          <button id="finishBtn" type="button" disabled>结束采访并生成</button>
           <span id="statusText" class="status-badge">未开始</span>
         </div>
       </header>
 
-      <section class="workspace">
-        <section>
-          <div id="chatBox" class="chat-stage" aria-live="polite"></div>
-          <section class="composer-wrap">
-            <div class="composer">
-              <textarea id="userInput" rows="1" placeholder="继续采访内容，或输入“开始写传记”" disabled></textarea>
-              <button id="sendBtn" type="button" disabled>发送</button>
-            </div>
-          </section>
-        </section>
+      <section id="chatBox" class="chat-stage" aria-live="polite"></section>
 
-        <aside class="side-panel">
-          <h2>生成过程（Multi-Agent）</h2>
-          <div id="logList" class="log-list empty">完成采访后将在这里显示代理过程...</div>
-          <article class="result-card">
-            <h3>章节结构</h3>
-            <pre id="structureOutput"></pre>
-          </article>
-          <article class="result-card">
-            <h3>传记初稿</h3>
-            <pre id="bioOutput"></pre>
-          </article>
-        </aside>
+      <section class="composer-wrap">
+        <div class="composer">
+          <textarea id="userInput" rows="1" placeholder="给‘家传助手’发送消息（Ctrl/⌘ + Enter 发送）" disabled></textarea>
+          <button id="sendBtn" type="button" disabled>发送</button>
+        </div>
+      </section>
+
+      <section id="resultSection" class="result-grid" hidden>
+        <article class="result-card">
+          <h2>① 编排代理输出</h2>
+          <pre id="structureOutput"></pre>
+        </article>
+        <article class="result-card full">
+          <h2>② 写作代理输出（传记初稿）</h2>
+          <pre id="bioOutput"></pre>
+        </article>
       </section>
     </main>
 
@@ -108,10 +102,8 @@
         finishBtn.disabled = false;
         userInput.disabled = false;
         userInput.focus();
-        structureOutput.innerText = "";
-        bioOutput.innerText = "";
-        renderLogs([]);
-        statusText.innerText = "采访中";
+        resultSection.hidden = true;
+        statusText.innerText = "采集中";
       }
 
       async function sendMessage() {
@@ -140,28 +132,6 @@
         if (data.ready_to_write && data.result) {
           setGeneratedState(data);
         }
-      }
-
-      async function finishInterview() {
-        if (!sessionId) return;
-        statusText.innerText = "生成中";
-
-        const res = await fetch("/chat/finish", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          statusText.innerText = "采访中";
-          appendMessage("assistant", data.error || "结束采访失败，请重试。");
-          return;
-        }
-
-        const assistantMessage = data.messages[data.messages.length - 1];
-        if (assistantMessage) appendMessage(assistantMessage.role, assistantMessage.content);
-        setGeneratedState(data);
       }
 
       function autoresize() {
