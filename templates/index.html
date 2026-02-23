@@ -7,53 +7,102 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <main class="container">
-      <h1>家传 · 对话式人物传记采写</h1>
-      <p class="subtitle">用户与采访助手多轮聊天，素材充分后自动触发“编排代理 + 写作代理”。</p>
-
-      <section class="card">
-        <div class="toolbar">
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>家传</h1>
+          <p>先采访，再由多代理协作生成传记</p>
+        </div>
+        <div class="actions">
           <button id="startBtn" type="button">开启新对话</button>
-          <span id="statusText">未开始</span>
+          <button id="finishBtn" type="button" disabled>结束采访并生成</button>
+          <span id="statusText" class="status-badge">未开始</span>
         </div>
+      </header>
 
-        <div id="chatBox" class="chat-box"></div>
+      <section class="workspace">
+        <section>
+          <div id="chatBox" class="chat-stage" aria-live="polite"></div>
+          <section class="composer-wrap">
+            <div class="composer">
+              <textarea id="userInput" rows="1" placeholder="继续采访内容，或输入“开始写传记”" disabled></textarea>
+              <button id="sendBtn" type="button" disabled>发送</button>
+            </div>
+          </section>
+        </section>
 
-        <div class="input-row">
-          <textarea id="userInput" rows="3" placeholder="请输入你的回复..." disabled></textarea>
-          <button id="sendBtn" type="button" disabled>发送</button>
-        </div>
-      </section>
-
-      <section id="resultSection" class="result-grid" hidden>
-        <article class="card">
-          <h2>① 编排代理输出</h2>
-          <pre id="structureOutput"></pre>
-        </article>
-        <article class="card full">
-          <h2>② 写作代理输出（传记初稿）</h2>
-          <pre id="bioOutput"></pre>
-        </article>
+        <aside class="side-panel">
+          <h2>生成过程（Multi-Agent）</h2>
+          <div id="logList" class="log-list empty">完成采访后将在这里显示代理过程...</div>
+          <article class="result-card">
+            <h3>章节结构</h3>
+            <pre id="structureOutput"></pre>
+          </article>
+          <article class="result-card">
+            <h3>传记初稿</h3>
+            <pre id="bioOutput"></pre>
+          </article>
+        </aside>
       </section>
     </main>
 
     <script>
       let sessionId = "";
+      let renderedCount = 0;
       const startBtn = document.getElementById("startBtn");
+      const finishBtn = document.getElementById("finishBtn");
       const sendBtn = document.getElementById("sendBtn");
       const userInput = document.getElementById("userInput");
       const chatBox = document.getElementById("chatBox");
       const statusText = document.getElementById("statusText");
-      const resultSection = document.getElementById("resultSection");
+      const logList = document.getElementById("logList");
       const structureOutput = document.getElementById("structureOutput");
       const bioOutput = document.getElementById("bioOutput");
 
       function appendMessage(role, content) {
-        const item = document.createElement("div");
-        item.className = `msg ${role}`;
-        item.innerText = `${role === "assistant" ? "助手" : "用户"}：${content}`;
-        chatBox.appendChild(item);
+        const row = document.createElement("div");
+        row.className = `message-row ${role}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        bubble.innerText = content;
+
+        row.appendChild(bubble);
+        chatBox.appendChild(row);
         chatBox.scrollTop = chatBox.scrollHeight;
+        renderedCount += 1;
+      }
+
+      function appendNewMessages(messages) {
+        const start = Math.min(renderedCount, messages.length);
+        messages.slice(start).forEach((m) => appendMessage(m.role, m.content));
+      }
+
+      function renderLogs(logs) {
+        if (!logs || !logs.length) {
+          logList.className = "log-list empty";
+          logList.innerText = "完成采访后将在这里显示代理过程...";
+          return;
+        }
+
+        logList.className = "log-list";
+        logList.innerHTML = "";
+        logs.forEach((item, idx) => {
+          const line = document.createElement("div");
+          line.className = `log-item ${item.status || "done"}`;
+          line.innerHTML = `<strong>${idx + 1}. ${item.agent}</strong><p>${item.output || ""}</p>`;
+          logList.appendChild(line);
+        });
+      }
+
+      function setGeneratedState(data) {
+        statusText.innerText = "已完成写作";
+        sendBtn.disabled = true;
+        finishBtn.disabled = true;
+        userInput.disabled = true;
+        renderLogs(data.logs || []);
+        structureOutput.innerText = (data.result && data.result.structure) || "";
+        bioOutput.innerText = (data.result && data.result.biography) || "";
       }
 
       async function startChat() {
@@ -61,11 +110,16 @@
         const data = await res.json();
         sessionId = data.session_id;
         chatBox.innerHTML = "";
+        renderedCount = 0;
         data.messages.forEach((m) => appendMessage(m.role, m.content));
         sendBtn.disabled = false;
+        finishBtn.disabled = false;
         userInput.disabled = false;
-        resultSection.hidden = true;
-        statusText.innerText = "采集中";
+        userInput.focus();
+        structureOutput.innerText = "";
+        bioOutput.innerText = "";
+        renderLogs([]);
+        statusText.innerText = "采访中";
       }
 
       async function sendMessage() {
@@ -74,6 +128,7 @@
 
         appendMessage("user", text);
         userInput.value = "";
+        userInput.style.height = "auto";
 
         const res = await fetch("/chat/message", {
           method: "POST",
@@ -87,23 +142,46 @@
           return;
         }
 
-        const assistantMessage = data.messages[data.messages.length - 1];
-        appendMessage(assistantMessage.role, assistantMessage.content);
+        appendNewMessages(data.messages || []);
 
         if (data.ready_to_write && data.result) {
-          statusText.innerText = "已完成写作";
-          sendBtn.disabled = true;
-          userInput.disabled = true;
-          structureOutput.innerText = data.result.structure || "";
-          bioOutput.innerText = data.result.biography || "";
-          resultSection.hidden = false;
+          setGeneratedState(data);
         }
       }
 
+      async function finishInterview() {
+        if (!sessionId) return;
+        statusText.innerText = "生成中";
+
+        const res = await fetch("/chat/finish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          statusText.innerText = "采访中";
+          appendMessage("assistant", data.error || "结束采访失败，请重试。");
+          return;
+        }
+
+        appendNewMessages(data.messages || []);
+        setGeneratedState(data);
+      }
+
+      function autoresize() {
+        userInput.style.height = "auto";
+        userInput.style.height = `${Math.min(userInput.scrollHeight, 160)}px`;
+      }
+
       startBtn.addEventListener("click", startChat);
+      finishBtn.addEventListener("click", finishInterview);
       sendBtn.addEventListener("click", sendMessage);
+      userInput.addEventListener("input", autoresize);
       userInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
           sendMessage();
         }
       });
