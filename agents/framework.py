@@ -92,8 +92,8 @@ class WritingAgent(BaseAgent):
 
 
 class BiographyMultiAgentFramework:
-    def __init__(self):
-        cfg = OpenAIConfig()
+    def __init__(self, cfg_path: str = "config/agents.yaml"):
+        cfg = OpenAIConfig(cfg_path)
         llm = OpenAILLM(cfg)
         prompts = cfg.prompts
         models = cfg.models

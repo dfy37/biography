@@ -28,7 +28,7 @@ sessions: Dict[str, ChatSession] = {}
 def get_framework() -> BiographyMultiAgentFramework:
     global framework
     if framework is None:
-        framework = BiographyMultiAgentFramework()
+        framework = BiographyMultiAgentFramework(cfg_path="/Users/duanfeiyu/Documents/Personal_Bio/config.yaml")
     return framework
 
 
@@ -152,4 +152,4 @@ def chat_finish():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")), debug=True)
