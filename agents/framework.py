@@ -123,22 +123,51 @@ class BiographyMultiAgentFramework:
             prompt=prompts.get("writing", "你负责写作传记初稿。"),
         )
 
-    def next_turn(self, history: List[Dict[str, str]]) -> Dict[str, Any]:
+    def interview_turn(self, history: List[Dict[str, str]]) -> str:
+        interview = self.interview_agent.run(history)
+        return interview.output
+
+    def generate_biography(self, history: List[Dict[str, str]]) -> Dict[str, Any]:
+        logs: List[Dict[str, str]] = []
+
         ready, judge_text = self.sufficiency_agent.run(history)
-        if not ready:
-            interview = self.interview_agent.run(history)
-            return {
-                "ready_to_write": False,
-                "assistant": interview.output,
-                "judge": judge_text,
+        logs.append(
+            {
+                "agent": self.sufficiency_agent.name,
+                "status": "done",
+                "output": judge_text,
             }
+        )
+
+        if not ready:
+            logs.append(
+                {
+                    "agent": "流程控制",
+                    "status": "warning",
+                    "output": "素材尚未完全充足，但已根据你的要求进入写作流程。",
+                }
+            )
 
         structure = self.structuring_agent.run(history)
+        logs.append(
+            {
+                "agent": self.structuring_agent.name,
+                "status": "done",
+                "output": structure.output,
+            }
+        )
+
         writing = self.writing_agent.run(history + [{"role": "assistant", "content": structure.output}])
+        logs.append(
+            {
+                "agent": self.writing_agent.name,
+                "status": "done",
+                "output": "传记初稿生成完成。",
+            }
+        )
+
         return {
-            "ready_to_write": True,
-            "assistant": "我已经采集到足够信息，开始生成传记初稿。",
-            "judge": judge_text,
+            "logs": logs,
             "result": {
                 "structure": structure.output,
                 "biography": writing.output,

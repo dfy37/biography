@@ -2,7 +2,10 @@
   color-scheme: light;
   --bg: #f7f7f8;
   --surface: #ffffff;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+=======
   --panel: #f4f4f5;
+>>>>>>> main
   --text: #202123;
   --muted: #6b7280;
   --primary: #10a37f;
@@ -24,6 +27,12 @@ body {
 }
 
 .app-shell {
+<<<<<<< codex/update-chat-interface-style-t75uoj
+  max-width: 1320px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 18px 16px 26px;
+=======
   max-width: 860px;
   margin: 0 auto;
   min-height: 100vh;
@@ -31,13 +40,18 @@ body {
   display: grid;
   grid-template-rows: auto 1fr auto auto;
   gap: 14px;
+>>>>>>> main
 }
 
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+  margin-bottom: 14px;
+=======
   gap: 12px;
+>>>>>>> main
 }
 
 h1 {
@@ -55,6 +69,11 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+  flex-wrap: wrap;
+  justify-content: flex-end;
+=======
+>>>>>>> main
 }
 
 button {
@@ -72,6 +91,10 @@ button:hover:not(:disabled) {
   background: var(--primary-hover);
 }
 
+button:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
 button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -83,6 +106,16 @@ button:disabled {
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 13px;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 14px;
+  align-items: start;
+=======
+>>>>>>> main
 }
 
 .chat-stage {
@@ -91,6 +124,41 @@ button:disabled {
   border: 1px solid var(--border);
   background: var(--surface);
   padding: 18px;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+  min-height: 500px;
+  max-height: 68vh;
+}
+
+.message-row {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-bubble {
+  max-width: min(85%, 700px);
+  border-radius: 14px;
+  padding: 12px 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.message-row.assistant .message-bubble {
+  background: var(--assistant);
+  border: 1px solid var(--border);
+}
+
+.message-row.user .message-bubble {
+  background: var(--user);
+  border: 1px solid #d1fae5;
+}
+
+.composer-wrap {
+  margin-top: 10px;
+=======
   min-height: 420px;
   max-height: 62vh;
 }
@@ -130,6 +198,7 @@ button:disabled {
   position: sticky;
   bottom: 0;
   padding-bottom: 4px;
+>>>>>>> main
 }
 
 .composer {
@@ -141,7 +210,10 @@ button:disabled {
   border-radius: 16px;
   background: var(--surface);
   padding: 10px;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+=======
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.06);
+>>>>>>> main
 }
 
 textarea {
@@ -157,8 +229,26 @@ textarea {
   background: transparent;
 }
 
-.result-grid {
+.side-panel {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 14px;
+  max-height: calc(68vh + 104px);
+  overflow-y: auto;
+}
+
+.side-panel h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.log-list {
   display: grid;
+<<<<<<< codex/update-chat-interface-style-t75uoj
+  gap: 8px;
+  margin-bottom: 12px;
+=======
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
@@ -173,16 +263,69 @@ textarea {
 .result-card h2 {
   margin-top: 0;
   font-size: 16px;
+>>>>>>> main
 }
 
-.result-grid .full {
-  grid-column: 1 / -1;
+.log-list.empty {
+  color: var(--muted);
+  font-size: 13px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.log-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.log-item.warning {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.log-item p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: #374151;
+  font-size: 13px;
+}
+
+.result-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.result-card h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
 }
 
 pre {
   margin: 0;
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.58;
+  font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-stage {
+    min-height: 360px;
+    max-height: 56vh;
+  }
+
+  .side-panel {
+    max-height: none;
+  }
 }
 
 @media (max-width: 720px) {

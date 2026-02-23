@@ -18,6 +18,7 @@ class ChatSession:
     messages: List[Dict[str, str]] = field(default_factory=list)
     ready_to_write: bool = False
     biography: Dict[str, str] | None = None
+    logs: List[Dict[str, str]] = field(default_factory=list)
 
 
 framework: BiographyMultiAgentFramework | None = None
@@ -29,6 +30,12 @@ def get_framework() -> BiographyMultiAgentFramework:
     if framework is None:
         framework = BiographyMultiAgentFramework()
     return framework
+
+
+def wants_to_finish(message: str) -> bool:
+    text = message.strip().lower()
+    keywords = ["开始写", "生成传记", "结束采访", "可以写了", "开始生成", "finish", "write"]
+    return any(k in text for k in keywords)
 
 
 @app.route("/", methods=["GET"])
@@ -64,21 +71,81 @@ def chat_message():
         return jsonify({"error": "该会话已完成写作，如需继续请开启新会话。"}), 400
 
     session.messages.append({"role": "user", "content": user_message})
-    try:
-        pipeline_result = get_framework().next_turn(session.messages)
-    except Exception as e:
-        return jsonify({"error": f"LLM 初始化或调用失败：{e}"}), 500
 
-    session.messages.append({"role": "assistant", "content": pipeline_result["assistant"]})
-    if pipeline_result["ready_to_write"]:
+    if wants_to_finish(user_message):
+        try:
+            pipeline_result = get_framework().generate_biography(session.messages)
+        except Exception as e:
+            return jsonify({"error": f"LLM 初始化或调用失败：{e}"}), 500
+
         session.ready_to_write = True
         session.biography = pipeline_result["result"]
+        session.logs = pipeline_result["logs"]
+        session.messages.append(
+            {
+                "role": "assistant",
+                "content": "收到，我们现在结束采访，开始多代理协作生成传记。",
+            }
+        )
+    else:
+        try:
+            assistant_text = get_framework().interview_turn(session.messages)
+        except Exception as e:
+            return jsonify({"error": f"LLM 初始化或调用失败：{e}"}), 500
+        session.messages.append({"role": "assistant", "content": assistant_text})
 
     return jsonify(
         {
             "session_id": session.session_id,
             "messages": session.messages,
             "ready_to_write": session.ready_to_write,
+            "logs": session.logs,
+            "result": session.biography,
+        }
+    )
+
+
+@app.route("/chat/finish", methods=["POST"])
+def chat_finish():
+    data = request.get_json(silent=True) or {}
+    session_id = (data.get("session_id") or "").strip()
+
+    if not session_id or session_id not in sessions:
+        return jsonify({"error": "会话不存在，请刷新后重新开始。"}), 400
+
+    session = sessions[session_id]
+    if session.ready_to_write:
+        return jsonify(
+            {
+                "session_id": session.session_id,
+                "messages": session.messages,
+                "ready_to_write": session.ready_to_write,
+                "logs": session.logs,
+                "result": session.biography,
+            }
+        )
+
+    try:
+        pipeline_result = get_framework().generate_biography(session.messages)
+    except Exception as e:
+        return jsonify({"error": f"LLM 初始化或调用失败：{e}"}), 500
+
+    session.ready_to_write = True
+    session.biography = pipeline_result["result"]
+    session.logs = pipeline_result["logs"]
+    session.messages.append(
+        {
+            "role": "assistant",
+            "content": "采访已结束，正在侧边展示多代理生成结果。",
+        }
+    )
+
+    return jsonify(
+        {
+            "session_id": session.session_id,
+            "messages": session.messages,
+            "ready_to_write": session.ready_to_write,
+            "logs": session.logs,
             "result": session.biography,
         }
     )

@@ -43,11 +43,12 @@
     <script>
       let sessionId = "";
       const startBtn = document.getElementById("startBtn");
+      const finishBtn = document.getElementById("finishBtn");
       const sendBtn = document.getElementById("sendBtn");
       const userInput = document.getElementById("userInput");
       const chatBox = document.getElementById("chatBox");
       const statusText = document.getElementById("statusText");
-      const resultSection = document.getElementById("resultSection");
+      const logList = document.getElementById("logList");
       const structureOutput = document.getElementById("structureOutput");
       const bioOutput = document.getElementById("bioOutput");
 
@@ -64,6 +65,33 @@
         chatBox.scrollTop = chatBox.scrollHeight;
       }
 
+      function renderLogs(logs) {
+        if (!logs || !logs.length) {
+          logList.className = "log-list empty";
+          logList.innerText = "完成采访后将在这里显示代理过程...";
+          return;
+        }
+
+        logList.className = "log-list";
+        logList.innerHTML = "";
+        logs.forEach((item, idx) => {
+          const line = document.createElement("div");
+          line.className = `log-item ${item.status || "done"}`;
+          line.innerHTML = `<strong>${idx + 1}. ${item.agent}</strong><p>${item.output || ""}</p>`;
+          logList.appendChild(line);
+        });
+      }
+
+      function setGeneratedState(data) {
+        statusText.innerText = "已完成写作";
+        sendBtn.disabled = true;
+        finishBtn.disabled = true;
+        userInput.disabled = true;
+        renderLogs(data.logs || []);
+        structureOutput.innerText = (data.result && data.result.structure) || "";
+        bioOutput.innerText = (data.result && data.result.biography) || "";
+      }
+
       async function startChat() {
         const res = await fetch("/chat/start", { method: "POST" });
         const data = await res.json();
@@ -71,6 +99,7 @@
         chatBox.innerHTML = "";
         data.messages.forEach((m) => appendMessage(m.role, m.content));
         sendBtn.disabled = false;
+        finishBtn.disabled = false;
         userInput.disabled = false;
         userInput.focus();
         resultSection.hidden = true;
@@ -101,12 +130,7 @@
         appendMessage(assistantMessage.role, assistantMessage.content);
 
         if (data.ready_to_write && data.result) {
-          statusText.innerText = "已完成写作";
-          sendBtn.disabled = true;
-          userInput.disabled = true;
-          structureOutput.innerText = data.result.structure || "";
-          bioOutput.innerText = data.result.biography || "";
-          resultSection.hidden = false;
+          setGeneratedState(data);
         }
       }
 
@@ -116,6 +140,7 @@
       }
 
       startBtn.addEventListener("click", startChat);
+      finishBtn.addEventListener("click", finishInterview);
       sendBtn.addEventListener("click", sendMessage);
       userInput.addEventListener("input", autoresize);
       userInput.addEventListener("keydown", (e) => {
