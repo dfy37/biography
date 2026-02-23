@@ -1,110 +1,178 @@
 :root {
   color-scheme: light;
-  --bg: #f6f8fb;
-  --card: #ffffff;
-  --text: #1f2a37;
-  --primary: #4f46e5;
-  --border: #dbe3ef;
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --panel: #f4f4f5;
+  --text: #202123;
+  --muted: #6b7280;
+  --primary: #10a37f;
+  --primary-hover: #0d8f6f;
+  --border: #e5e7eb;
+  --assistant: #f7f7f8;
+  --user: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
-.container {
-  max-width: 980px;
-  margin: 24px auto;
-  padding: 0 16px 40px;
+.app-shell {
+  max-width: 860px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px 16px 32px;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 14px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 h1 {
-  margin-bottom: 8px;
+  margin: 0;
+  font-size: 24px;
 }
 
-.subtitle {
-  margin-top: 0;
-  color: #4b5563;
+.topbar p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 16px;
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 button {
   background: var(--primary);
-  color: white;
+  color: #fff;
   border: 0;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  background: var(--primary-hover);
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
-.toolbar {
+.status-badge {
+  background: #e5e7eb;
+  color: #374151;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.chat-stage {
+  overflow-y: auto;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 18px;
+  min-height: 420px;
+  max-height: 62vh;
+}
+
+.message-row {
   display: flex;
-  gap: 12px;
-  align-items: center;
   margin-bottom: 12px;
 }
 
-.chat-box {
-  min-height: 280px;
-  max-height: 420px;
-  overflow-y: auto;
+.message-row.user {
+  justify-content: flex-end;
+}
+
+.message-row.assistant {
+  justify-content: flex-start;
+}
+
+.message-bubble {
+  max-width: min(80%, 640px);
+  border-radius: 14px;
+  padding: 12px 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.message-row.assistant .message-bubble {
+  background: var(--assistant);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
-  background: #fafcff;
 }
 
-.msg {
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  line-height: 1.6;
+.message-row.user .message-bubble {
+  background: var(--user);
+  border: 1px solid #d1fae5;
 }
 
-.msg.assistant {
-  background: #eef2ff;
+.composer-wrap {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: 4px;
 }
 
-.msg.user {
-  background: #ecfeff;
-}
-
-.input-row {
-  margin-top: 12px;
+.composer {
   display: grid;
-  grid-template-columns: 1fr 100px;
-  gap: 8px;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 10px;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.06);
 }
 
 textarea {
   width: 100%;
-  box-sizing: border-box;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #c7d2e1;
-  font-size: 14px;
-  resize: vertical;
+  border: 0;
+  outline: none;
+  resize: none;
+  font: inherit;
+  line-height: 1.5;
+  padding: 8px;
+  min-height: 44px;
+  max-height: 160px;
+  background: transparent;
 }
 
 .result-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
+}
+
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.result-card h2 {
+  margin-top: 0;
+  font-size: 16px;
 }
 
 .result-grid .full {
@@ -112,6 +180,27 @@ textarea {
 }
 
 pre {
+  margin: 0;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chat-stage {
+    min-height: 360px;
+    max-height: 56vh;
+  }
+
+  .message-bubble {
+    max-width: 92%;
+  }
+
+  .result-grid {
+    grid-template-columns: 1fr;
+  }
 }

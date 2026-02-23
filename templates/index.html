@@ -7,30 +7,33 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <main class="container">
-      <h1>家传 · 对话式人物传记采写</h1>
-      <p class="subtitle">用户与采访助手多轮聊天，素材充分后自动触发“编排代理 + 写作代理”。</p>
-
-      <section class="card">
-        <div class="toolbar">
-          <button id="startBtn" type="button">开启新对话</button>
-          <span id="statusText">未开始</span>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>家传</h1>
+          <p>ChatGPT 风格对话采写台</p>
         </div>
+        <div class="actions">
+          <button id="startBtn" type="button">开启新对话</button>
+          <span id="statusText" class="status-badge">未开始</span>
+        </div>
+      </header>
 
-        <div id="chatBox" class="chat-box"></div>
+      <section id="chatBox" class="chat-stage" aria-live="polite"></section>
 
-        <div class="input-row">
-          <textarea id="userInput" rows="3" placeholder="请输入你的回复..." disabled></textarea>
+      <section class="composer-wrap">
+        <div class="composer">
+          <textarea id="userInput" rows="1" placeholder="给‘家传助手’发送消息（Ctrl/⌘ + Enter 发送）" disabled></textarea>
           <button id="sendBtn" type="button" disabled>发送</button>
         </div>
       </section>
 
       <section id="resultSection" class="result-grid" hidden>
-        <article class="card">
+        <article class="result-card">
           <h2>① 编排代理输出</h2>
           <pre id="structureOutput"></pre>
         </article>
-        <article class="card full">
+        <article class="result-card full">
           <h2>② 写作代理输出（传记初稿）</h2>
           <pre id="bioOutput"></pre>
         </article>
@@ -49,10 +52,15 @@
       const bioOutput = document.getElementById("bioOutput");
 
       function appendMessage(role, content) {
-        const item = document.createElement("div");
-        item.className = `msg ${role}`;
-        item.innerText = `${role === "assistant" ? "助手" : "用户"}：${content}`;
-        chatBox.appendChild(item);
+        const row = document.createElement("div");
+        row.className = `message-row ${role}`;
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        bubble.innerText = content;
+
+        row.appendChild(bubble);
+        chatBox.appendChild(row);
         chatBox.scrollTop = chatBox.scrollHeight;
       }
 
@@ -64,6 +72,7 @@
         data.messages.forEach((m) => appendMessage(m.role, m.content));
         sendBtn.disabled = false;
         userInput.disabled = false;
+        userInput.focus();
         resultSection.hidden = true;
         statusText.innerText = "采集中";
       }
@@ -74,6 +83,7 @@
 
         appendMessage("user", text);
         userInput.value = "";
+        userInput.style.height = "auto";
 
         const res = await fetch("/chat/message", {
           method: "POST",
@@ -100,10 +110,17 @@
         }
       }
 
+      function autoresize() {
+        userInput.style.height = "auto";
+        userInput.style.height = `${Math.min(userInput.scrollHeight, 160)}px`;
+      }
+
       startBtn.addEventListener("click", startChat);
       sendBtn.addEventListener("click", sendMessage);
+      userInput.addEventListener("input", autoresize);
       userInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
           sendMessage();
         }
       });
