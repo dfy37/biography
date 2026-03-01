@@ -1,13 +1,19 @@
-# 家传 Web Demo（Flask + 对话式 Multi-Agent）
+# StorySage Web Demo（Flask + Five-Agent Workflow）
 
-这是一个基于 Flask 的网页 Demo，用于演示“对话式人物传记采访与写作”流程。
+这是一个基于 Flask 的 StorySage 复现 Demo：把“采访-写作-下轮准备”拆成三阶段，并通过共享数据结构协作。
 
-## 功能
-- 对话采访代理：与用户多轮交互，逐步采集素材（非问卷）
-- 充足性判断代理：判断信息是否足够写作
-- 编排代理：输出章节结构
-- 写作代理：生成传记初稿
-- 配置驱动：通过 `config/agents.yaml` 配置 OpenAI 参数、模型和提示词
+## 复现要点
+- 三阶段：
+  - Interview Session（Interviewer + Session Scribe）
+  - Biography Writing（Planner + Section Writer）
+  - Subsequent Session Preparation（Session Coordinator）
+- 四类共享结构：
+  - `MemoryBank`
+  - `QuestionBank`
+  - `SessionAgenda`
+  - `BiographyDocument`
+- 去重机制：QuestionBank 相似检索 `topK=3`
+- 写作触发：未处理记忆达到 `>=10` 或用户结束会话
 
 ## 运行
 ```bash
@@ -17,21 +23,20 @@ pip install -r requirements.txt
 python app.py
 ```
 
-浏览器访问：`http://127.0.0.1:5000`
+浏览器访问：`http://127.0.0.1:8080`
 
 ## 配置
 编辑 `config/agents.yaml`：
 - `openai.api_key`（建议改用环境变量 `OPENAI_API_KEY`）
-- `openai.base_url`
-- `models.*`（不同代理使用的模型）
-- `prompts.*`（各代理提示词）
+- `models.*`（五个 agent 各自模型）
+- `prompts.*`（五个 agent 提示词）
 
 ## 接口
-- `POST /chat/start`：开启会话，返回欢迎语
-- `POST /chat/message`：发送一轮用户输入，返回助手回复；当素材充足时自动返回结构与初稿
+- `POST /chat/start`：新建会话并初始化 Session Agenda
+- `POST /chat/message`：处理用户输入（包含 Scribe 后台处理 + Interviewer 提问）
+- `POST /chat/finish`：强制结束并完成剩余记忆写作
 
-
-## 项目结构
-- `app.py`：仅保留 Flask 路由与会话管理
-- `agents/framework.py`：Multi-Agent 框架与 OpenAI 调用实现
-- `config/agents.yaml`：模型、提示词与 API 配置
+## 关键实现位置
+- `agents/framework.py`：五 agent + 四数据结构 + 写作触发逻辑
+- `app.py`：会话路由、状态管理与阶段编排
+- `config/agents.yaml`：模型与提示词
